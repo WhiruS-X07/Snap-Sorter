@@ -27,7 +27,8 @@ The application is designed to provide a fast and smooth workflow for reviewing 
 - Fullscreen mode
 - Modern responsive UI
 - Local file system access
-- Built without frameworks
+- Built completely with Vanilla JavaScript
+- Lightweight and fast
 
 ---
 
@@ -71,12 +72,13 @@ Used for:
 - Thumbnail rendering
 - Fullscreen functionality
 - Drag & drop support
+- Dynamic UI updates
 
 ---
 
 # File System Access API
 
-One of the main advanced features of this project is the use of the **File System Access API**.
+One of the most advanced features of this project is the use of the **File System Access API**.
 
 This API allows the browser to interact directly with the user's local file system after permission is granted.
 
@@ -236,7 +238,8 @@ The project includes several optimizations:
 - Smooth transitions
 - Disabled controls when inactive
 - Lightweight architecture
-- No external frameworks
+- Fast local processing
+- No external JavaScript frameworks
 
 ---
 
@@ -330,7 +333,7 @@ git init
 git add .
 git commit -m "Initial commit"
 git branch -M main
-git remote add origin YOUR_REPOSITORY_URL
+git remote add origin https://github.com/WhiruS-X07/Snap-Sorter.git
 git push -u origin main
 ```
 
@@ -338,13 +341,10 @@ git push -u origin main
 
 # Author
 
-Built by Your Name
+Built by **WhiruS**  
 
----
-
-# License
-
-This project currently has no license attached.
+GitHub:  
+https://github.com/WhiruS-X07
 
 ---
 
