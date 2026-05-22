@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Advanced Image Reviewer</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+      ::-webkit-scrollbar {
+        width: 10px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: #111;
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: #444;
+        border-radius: 999px;
+      }
+
+      body {
+        overflow: hidden;
+      }
+
+      .fade-in {
+        animation: fadeIn 0.2s ease-in-out;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: scale(0.98);
+        }
+
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+    </style>
+  </head>
+
+  <body class="bg-black text-white h-screen flex flex-col">
+    <!-- Header -->
+    <header
+      class="border-b border-neutral-800 px-4 py-3 flex flex-wrap items-center gap-3 bg-neutral-950"
+    >
+      <button
+        class="openFolderBtn bg-blue-600 hover:bg-blue-700 transition px-4 py-2 rounded-2xl font-semibold"
+      >
+        Open Image Folder
+      </button>
+
+      <button
+        id="chooseSaveBtn"
+        class="bg-purple-600 hover:bg-purple-700 transition px-4 py-2 rounded-2xl font-semibold"
+      >
+        Choose Save Folder
+      </button>
+
+      <button
+        id="saveBtn"
+        disabled
+        class="bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition px-5 py-2 rounded-2xl font-bold"
+      >
+        Save Image
+      </button>
+
+      <button
+        id="prevBtn"
+        disabled
+        class="bg-neutral-700 hover:bg-neutral-600 disabled:opacity-40 disabled:cursor-not-allowed transition px-4 py-2 rounded-2xl"
+      >
+        ← Previous
+      </button>
+
+      <button
+        id="nextBtn"
+        disabled
+        class="bg-neutral-700 hover:bg-neutral-600 disabled:opacity-40 disabled:cursor-not-allowed transition px-4 py-2 rounded-2xl"
+      >
+        Next →
+      </button>
+
+      <button
+        id="fullscreenBtn"
+        class="bg-neutral-700 hover:bg-neutral-600 transition px-4 py-2 rounded-2xl"
+      >
+        Fullscreen
+      </button>
+
+      <input
+        type="file"
+        id="imageInput"
+        accept="image/*"
+        multiple
+        webkitdirectory
+        class="hidden"
+      />
+    </header>
+
+    <!-- Main -->
+    <main class="flex-1 overflow-hidden flex">
+      <!-- Sidebar -->
+      <aside
+        id="sidebar"
+        class="w-72 border-r border-neutral-800 bg-neutral-950 overflow-y-auto hidden md:block"
+      >
+        <div class="p-4 border-b border-neutral-800">
+          <div class="text-lg font-bold">Loaded Images</div>
+          <div id="imageCount" class="text-sm text-neutral-400 mt-1">
+            0 images
+          </div>
+        </div>
+
+        <div id="thumbnailList" class="p-2 flex flex-col gap-2"></div>
+      </aside>
+
+      <!-- Viewer -->
+      <section class="flex-1 flex flex-col">
+        <!-- Info Bar -->
+        <div
+          class="px-5 py-3 border-b border-neutral-800 flex items-center justify-between bg-neutral-950"
+        >
+          <div>
+            <div id="info" class="font-semibold text-lg">
+              No images loaded
+            </div>
+
+            <div id="subInfo" class="text-sm text-neutral-400 mt-1">
+              Open a folder to begin reviewing
+            </div>
+          </div>
+
+          <div class="text-sm text-neutral-400 hidden md:block">
+            ← → Navigate | Space Save | F Fullscreen
+          </div>
+        </div>
+
+        <!-- Viewer Area -->
+        <div
+          id="dropZone"
+          class="flex-1 flex items-center justify-center bg-neutral-900 relative overflow-hidden"
+        >
+          <img
+            id="viewer"
+            class="max-h-full max-w-full object-contain hidden fade-in select-none"
+            draggable="false"
+            alt="Preview"
+          />
+
+          <button
+            id="placeholder"
+            class="openFolderBtn text-neutral-400 text-2xl border border-dashed border-neutral-700 rounded-3xl px-8 py-6 hover:bg-neutral-800 transition"
+          >
+            Click To Upload Images
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <!-- Saved Images -->
+    <section
+      id="savedContainer"
+      class="hidden border-t border-neutral-800 bg-neutral-950 p-4 max-h-44 overflow-y-auto"
+    >
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-bold text-lg">Saved Images</h2>
+
+        <span id="savedCount" class="text-sm text-green-400">0 saved</span>
+      </div>
+
+      <div id="savedList" class="flex flex-col gap-2 text-sm"></div>
+    </section>
+
+    <!-- Toast -->
+    <div
+      id="toast"
+      class="fixed bottom-5 right-5 bg-white text-black px-5 py-3 rounded-2xl shadow-2xl hidden z-50"
+    ></div>
+
+    <script>
+      const imageInput = document.getElementById("imageInput");
+      const openFolderBtns = document.querySelectorAll(".openFolderBtn");
+      const chooseSaveBtn = document.getElementById("chooseSaveBtn");
+      const saveBtn = document.getElementById("saveBtn");
+      const prevBtn = document.getElementById("prevBtn");
+      const nextBtn = document.getElementById("nextBtn");
+      const fullscreenBtn = document.getElementById("fullscreenBtn");
+
+      const viewer = document.getElementById("viewer");
+      const info = document.getElementById("info");
+      const subInfo = document.getElementById("subInfo");
+      const placeholder = document.getElementById("placeholder");
+      const thumbnailList = document.getElementById("thumbnailList");
+      const imageCount = document.getElementById("imageCount");
+
+      const savedContainer = document.getElementById("savedContainer");
+      const savedList = document.getElementById("savedList");
+      const savedCount = document.getElementById("savedCount");
+
+      const dropZone = document.getElementById("dropZone");
+      const toast = document.getElementById("toast");
+
+      let images = [];
+      let currentIndex = 0;
+      let saveDirectoryHandle = null;
+      let currentImageUrl = null;
+      let savedImages = [];
+
+      // -----------------------------
+      // OPEN FOLDER
+      // -----------------------------
+
+      openFolderBtns.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          imageInput.click();
+        });
+      });
+
+      imageInput.addEventListener("change", handleImageLoad);
+
+      function handleImageLoad(event) {
+        images = Array.from(event.target.files).filter((file) =>
+          file.type.startsWith("image/"),
+        );
+
+        if (images.length === 0) {
+          showToast("No valid images found");
+          return;
+        }
+
+        currentIndex = 0;
+
+        enableControls();
+        renderThumbnails();
+        updateImageCounter();
+        showImage();
+
+        showToast(`${images.length} images loaded`);
+      }
+
+      // -----------------------------
+      // IMAGE DISPLAY
+      // -----------------------------
+
+      function showImage() {
+        if (!images.length) {
+          return;
+        }
+
+        const file = images[currentIndex];
+
+        if (currentImageUrl) {
+          URL.revokeObjectURL(currentImageUrl);
+        }
+
+        currentImageUrl = URL.createObjectURL(file);
+
+        viewer.src = currentImageUrl;
+
+        viewer.classList.remove("hidden");
+        placeholder.classList.add("hidden");
+
+        info.textContent = `${currentIndex + 1} / ${images.length}`;
+
+        subInfo.textContent = `${file.name} • ${formatBytes(file.size)}`;
+
+        highlightThumbnail();
+      }
+
+      // -----------------------------
+      // NAVIGATION
+      // -----------------------------
+
+      function nextImage() {
+        if (currentIndex < images.length - 1) {
+          currentIndex++;
+          showImage();
+        }
+      }
+
+      function prevImage() {
+        if (currentIndex > 0) {
+          currentIndex--;
+          showImage();
+        }
+      }
+
+      nextBtn.addEventListener("click", nextImage);
+      prevBtn.addEventListener("click", prevImage);
+
+      // -----------------------------
+      // SAVE FOLDER
+      // -----------------------------
+
+      chooseSaveBtn.addEventListener("click", async () => {
+        try {
+          saveDirectoryHandle = await window.showDirectoryPicker();
+
+          showToast("Save folder selected");
+        } catch (error) {
+          console.error(error);
+        }
+      });
+
+      // -----------------------------
+      // SAVE IMAGE
+      // -----------------------------
+
+      saveBtn.addEventListener("click", saveImage);
+
+      async function saveImage() {
+        if (!images.length) {
+          return;
+        }
+
+        if (!saveDirectoryHandle) {
+          showToast("Choose a save folder first");
+          return;
+        }
+
+        const file = images[currentIndex];
+
+        try {
+          const fileHandle = await saveDirectoryHandle.getFileHandle(
+            file.name,
+            {
+              create: true,
+            },
+          );
+
+          const writable = await fileHandle.createWritable();
+
+          await writable.write(file);
+          await writable.close();
+
+          savedImages.push(file.name);
+
+          renderSavedImage(file.name);
+
+          showToast(`Saved ${file.name}`);
+
+          // Auto next image
+          if (currentIndex < images.length - 1) {
+            nextImage();
+          }
+        } catch (error) {
+          console.error(error);
+          showToast("Saving failed. Use Chrome browser.");
+        }
+      }
+
+      function renderSavedImage(name) {
+        savedContainer.classList.remove("hidden");
+
+        const item = document.createElement("div");
+
+        item.className =
+          "bg-neutral-900 border border-neutral-800 px-3 py-2 rounded-xl text-green-400";
+
+        item.textContent = `Saved: ${name}`;
+
+        savedList.prepend(item);
+
+        savedCount.textContent = `${savedImages.length} saved`;
+      }
+
+      // -----------------------------
+      // THUMBNAILS
+      // -----------------------------
+
+      function renderThumbnails() {
+        thumbnailList.innerHTML = "";
+
+        images.forEach((file, index) => {
+          const wrapper = document.createElement("button");
+
+          wrapper.className =
+            "thumbnailItem border border-neutral-800 rounded-2xl overflow-hidden bg-neutral-900 hover:border-blue-500 transition text-left";
+
+          const imageUrl = URL.createObjectURL(file);
+
+          wrapper.innerHTML = `
+            <img
+              src="${imageUrl}"
+              class="w-full h-28 object-cover"
+              alt="Thumbnail"
+            />
+
+            <div class="p-2 text-xs truncate text-neutral-300">
+              ${file.name}
+            </div>
+          `;
+
+          wrapper.addEventListener("click", () => {
+            currentIndex = index;
+            showImage();
+          });
+
+          thumbnailList.appendChild(wrapper);
+        });
+      }
+
+      function highlightThumbnail() {
+        const thumbnails = document.querySelectorAll(".thumbnailItem");
+
+        thumbnails.forEach((item, index) => {
+          item.classList.remove("border-blue-500");
+
+          if (index === currentIndex) {
+            item.classList.add("border-blue-500");
+          }
+        });
+      }
+
+      // -----------------------------
+      // FULLSCREEN
+      // -----------------------------
+
+      fullscreenBtn.addEventListener("click", toggleFullscreen);
+
+      function toggleFullscreen() {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen();
+        } else {
+          document.exitFullscreen();
+        }
+      }
+
+      // -----------------------------
+      // DRAG & DROP
+      // -----------------------------
+
+      ["dragenter", "dragover"].forEach((eventName) => {
+        dropZone.addEventListener(eventName, (event) => {
+          event.preventDefault();
+          dropZone.classList.add("bg-neutral-800");
+        });
+      });
+
+      ["dragleave", "drop"].forEach((eventName) => {
+        dropZone.addEventListener(eventName, (event) => {
+          event.preventDefault();
+          dropZone.classList.remove("bg-neutral-800");
+        });
+      });
+
+      dropZone.addEventListener("drop", (event) => {
+        const files = Array.from(event.dataTransfer.files).filter((file) =>
+          file.type.startsWith("image/"),
+        );
+
+        if (!files.length) {
+          showToast("No images dropped");
+          return;
+        }
+
+        images = files;
+        currentIndex = 0;
+
+        enableControls();
+        renderThumbnails();
+        updateImageCounter();
+        showImage();
+
+        showToast(`${files.length} images dropped`);
+      });
+
+      // -----------------------------
+      // KEYBOARD SHORTCUTS
+      // -----------------------------
+
+      document.addEventListener("keydown", (event) => {
+        if (event.target.tagName === "INPUT") {
+          return;
+        }
+
+        switch (event.key) {
+          case "ArrowRight":
+            nextImage();
+            break;
+
+          case "ArrowLeft":
+            prevImage();
+            break;
+
+          case " ":
+            event.preventDefault();
+            saveImage();
+            break;
+
+          case "f":
+          case "F":
+            toggleFullscreen();
+            break;
+        }
+      });
+
+      // -----------------------------
+      // UTILITIES
+      // -----------------------------
+
+      function enableControls() {
+        saveBtn.disabled = false;
+        prevBtn.disabled = false;
+        nextBtn.disabled = false;
+      }
+
+      function updateImageCounter() {
+        imageCount.textContent = `${images.length} images loaded`;
+      }
+
+      function formatBytes(bytes) {
+        if (bytes < 1024) {
+          return `${bytes} B`;
+        }
+
+        if (bytes < 1024 * 1024) {
+          return `${(bytes / 1024).toFixed(1)} KB`;
+        }
+
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+      }
+
+      function showToast(message) {
+        toast.textContent = message;
+
+        toast.classList.remove("hidden");
+
+        clearTimeout(showToast.timeout);
+
+        showToast.timeout = setTimeout(() => {
+          toast.classList.add("hidden");
+        }, 2500);
+      }
+    </script>
+  </body>
+</html>
